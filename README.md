@@ -1,256 +1,294 @@
-# Building a RESTful E-commerce API with Flask for T2S Services
+# Building a RESTful E-commerce API for T2S Services with Node.js and Express
 
-We will create a RESTful API for T2S Services that supports product management, user authentication, and order processing, similar to APIs used by Amazon, Shopify, and BigCommerce.
+## Introduction
+
+E-commerce platforms like **Amazon, Shopify, and BigCommerce** rely on APIs to handle **user authentication, product management, and order processing**. 
+This guide demonstrates how to build **a real-world RESTful API** for **T2S Services** using **Node.js, Express, and MongoDB**. The API will support **user registration, product catalog management, and secure order processing**.
 
 ---
 
-## Step 1: Set Up the Project
+## Use Cases
+### 1. User Authentication & Authorization
+- **Users can register and log in** securely with hashed passwords and JWT authentication.
+- **Admins can manage products**, ensuring only authorized users can create or modify items.
 
-- First, install Flask and required dependencies:
+### 2. Product Management
+- Retrieve **a list of products** from the database.
+- **Admins can add, update, and delete** products dynamically.
+
+### 3. Order Processing & Inventory Management
+- Users can **place orders** for available products.
+- The API automatically **deducts stock** after a successful purchase.
+
+
+---
+
+## Step 1: Set Up Your Express.js Project
+
+### 1: Set Up the Project
+
+- Run the following in your terminal: 
 ```bash
 mkdir t2s-ecommerce-api
 cd t2s-ecommerce-api
-python3 -m venv venv
-source venv/bin/activate  # On Windows, use venv\Scripts\activate
-pip install flask flask-restful flask-jwt-extended flask-sqlalchemy
+npm init -y
 ```
+- This will create a **package.json** file. 
 
-## Step 2: Create the API Structure
+### 2: Install Dependencies
+```bash
+npm install express mongoose bcryptjs jsonwebtoken dotenv cors body-parser
+```
+- **express**: Web framework for APIs.
+- **mongoose**: MongoDB ODM for database operations.
+- **bcryptjs**: Password hashing for authentication. 
+- **jsonwebtoken**: Secure authentication with JWT. 
+- **dotenv**: Environment variables. 
+- **cors**: Cross-Origin Resource Sharing. 
+- **body-parser**: Parse incoming JSON requests. 
+
+---
+## Step 2: Project Structure
 ```plaintext
 t2s-ecommerce-api/
-│── app.py
-│── models.py
-│── resources/
-│   ├── products.py
-│   ├── users.py
-│   ├── orders.py
-│── database.py
-│── config.py
-│── requirements.txt
-```
-
-## Step 3: Configure the Database (config.py)
-
-- We will use SQLite for simplicity, but you can replace it with PostgreSQL or MySQL.
-
-```python
-import os
-
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-
-class Config:
-    SECRET_KEY = 'supersecretkey'
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(BASE_DIR, 'database.db')
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-```
-
-## Step 4: Define Database Models (models.py)
-
-- Create models for Users, Products, and Orders.
-```phyton
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
-
-class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.String(500), nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    stock = db.Column(db.Integer, nullable=False)
-
-class Order(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
-    total_price = db.Column(db.Float, nullable=False)
-```
-
-## Step 5: Create the API Endpoints (resources/)
-
-### 1. User Authentication (resources/users.py)
-
-```python
-from flask import request, jsonify
-from flask_restful import Resource
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token
-from models import User, db
-
-class RegisterUser(Resource):
-    def post(self):
-        data = request.get_json()
-        hashed_password = generate_password_hash(data['password'])
-        new_user = User(username=data['username'], password=hashed_password)
-        db.session.add(new_user)
-        db.session.commit()
-        return {"message": "User created successfully"}, 201
-
-class LoginUser(Resource):
-    def post(self):
-        data = request.get_json()
-        user = User.query.filter_by(username=data['username']).first()
-        if user and check_password_hash(user.password, data['password']):
-            access_token = create_access_token(identity=user.id)
-            return {"access_token": access_token}, 200
-        return {"message": "Invalid credentials"}, 401
-```
-
-### 2. Product Management (resources/products.py)
-```python
-from flask import request, jsonify
-from flask_restful import Resource
-from models import Product, db
-from flask_jwt_extended import jwt_required
-
-class ProductList(Resource):
-    def get(self):
-        products = Product.query.all()
-        return jsonify([{"id": p.id, "name": p.name, "price": p.price, "stock": p.stock} for p in products])
-
-    @jwt_required()
-    def post(self):
-        data = request.get_json()
-        new_product = Product(name=data['name'], description=data['description'], price=data['price'], stock=data['stock'])
-        db.session.add(new_product)
-        db.session.commit()
-        return {"message": "Product added successfully"}, 201
-
-class ProductDetail(Resource):
-    def get(self, product_id):
-        product = Product.query.get_or_404(product_id)
-        return jsonify({"id": product.id, "name": product.name, "price": product.price, "stock": product.stock})
-
-    @jwt_required()
-    def delete(self, product_id):
-        product = Product.query.get_or_404(product_id)
-        db.session.delete(product)
-        db.session.commit()
-        return {"message": "Product deleted successfully"}, 200
-```
-
-### 3. Order Processing (resources/orders.py)
-```python
-from flask import request, jsonify
-from flask_restful import Resource
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import Order, Product, db
-
-class OrderResource(Resource):
-    @jwt_required()
-    def post(self):
-        user_id = get_jwt_identity()
-        data = request.get_json()
-        product = Product.query.get_or_404(data['product_id'])
-
-        if product.stock < data['quantity']:
-            return {"message": "Not enough stock"}, 400
-
-        total_price = product.price * data['quantity']
-        new_order = Order(user_id=user_id, product_id=product.id, quantity=data['quantity'], total_price=total_price)
-        
-        product.stock -= data['quantity']
-        db.session.add(new_order)
-        db.session.commit()
-
-        return {"message": "Order placed successfully"}, 201
-
-    @jwt_required()
-    def get(self):
-        user_id = get_jwt_identity()
-        orders = Order.query.filter_by(user_id=user_id).all()
-        return jsonify([{"id": o.id, "product_id": o.product_id, "quantity": o.quantity, "total_price": o.total_price} for o in orders])
-```
-
-## Step 6: Set Up Flask Application (app.py)
-```python
-from flask import Flask
-from flask_restful import Api
-from flask_jwt_extended import JWTManager
-from models import db
-from config import Config
-from resources.users import RegisterUser, LoginUser
-from resources.products import ProductList, ProductDetail
-from resources.orders import OrderResource
-
-app = Flask(__name__)
-app.config.from_object(Config)
-db.init_app(app)
-api = Api(app)
-jwt = JWTManager(app)
-
-with app.app_context():
-    db.create_all()
-
-# Routes
-api.add_resource(RegisterUser, "/register")
-api.add_resource(LoginUser, "/login")
-api.add_resource(ProductList, "/products")
-api.add_resource(ProductDetail, "/products/<int:product_id>")
-api.add_resource(OrderResource, "/orders")
-
-if __name__ == "__main__":
-    app.run(debug=True)
-```
-
-## Step 7: Testing the API
-
-### 1. Run the API
-```bash
-python app.py
-```
-
-### 2. Test with cURL or Postman
-#### 1.	Register a User
-```json
-POST /register
-{
-    "username": "testuser",
-    "password": "password123"
-}
-```
-
-#### 2.	Login
-```json
-POST /login
-{
-    "username": "testuser",
-    "password": "password123"
-}
-```
-- Get JWT Token from response.
-
-#### 3. Add a Product (Auth Required)
-```json
-POST /products
-{
-    "name": "Laptop",
-    "description": "High-end gaming laptop",
-    "price": 1500.99,
-    "stock": 5
-}
-```
-- Include JWT Token in Authorization: Bearer 
-
-#### 4. Place an Order
-```json
-POST /orders
-{
-    "product_id": 1,
-    "quantity": 1
-}
+│── config/
+│   ├── db.js
+│── models/
+│   ├── User.js
+│   ├── Product.js
+│   ├── Order.js
+│── routes/
+│   ├── userRoutes.js
+│   ├── productRoutes.js
+│   ├── orderRoutes.js
+│── middleware/
+│   ├── authMiddleware.js
+│── app.js
+│── .env
+│── package.json
+│── README.md
 ```
 
 ---
+## Step 3: Configure MongoDB Connection (config/db.js)
 
+```javascript
+const mongoose = require("mongoose");
+
+const connectDB = async () => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        });
+        console.log("MongoDB Connected");
+    } catch (error) {
+        console.error("MongoDB Connection Error:", error);
+        process.exit(1);
+    }
+};
+
+module.exports = connectDB;
+```
+---
+## Step 4: Define Models
+
+### 1. User Model (models/User.js)
+```javascript
+const mongoose = require("mongoose");
+
+const UserSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    isAdmin: { type: Boolean, default: false }
+});
+
+module.exports = mongoose.model("User", UserSchema);
+```
+
+### 2. Product Model (models/Product.js)
+```
+const mongoose = require("mongoose");
+
+const ProductSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    price: { type: Number, required: true },
+    stock: { type: Number, required: true }
+});
+
+module.exports = mongoose.model("Product", ProductSchema);
+```
+
+### 3. Order Model (models/Order.js)
+```javascript
+const mongoose = require("mongoose");
+
+const OrderSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
+    quantity: { type: Number, required: true },
+    totalPrice: { type: Number, required: true },
+});
+
+module.exports = mongoose.model("Order", OrderSchema);
+```
+
+---
+## Step 5: Middleware for Authentication (middleware/authMiddleware.js)
+```javascript
+const jwt = require("jsonwebtoken");
+
+const authMiddleware = (req, res, next) => {
+    const token = req.header("Authorization")?.split(" ")[1];
+
+    if (!token) return res.status(401).json({ message: "Unauthorized" });
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        res.status(401).json({ message: "Invalid token" });
+    }
+};
+
+module.exports = authMiddleware;
+```
+
+---
+## Step 6: Create API Routes
+
+### 1. User Authentication (routes/userRoutes.js)
+```javascript
+const express = require("express");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+
+const router = express.Router();
+
+router.post("/register", async (req, res) => {
+    const { username, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({ username, password: hashedPassword });
+    await newUser.save();
+
+    res.status(201).json({ message: "User created successfully" });
+});
+
+router.post("/login", async (req, res) => {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+        return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ token });
+});
+
+module.exports = router;
+```
+
+### 2. Product Management (routes/productRoutes.js)
+```javascript
+const express = require("express");
+const Product = require("../models/Product");
+const authMiddleware = require("../middleware/authMiddleware");
+
+const router = express.Router();
+
+router.get("/", async (req, res) => {
+    const products = await Product.find();
+    res.json(products);
+});
+
+router.post("/", authMiddleware, async (req, res) => {
+    const newProduct = new Product(req.body);
+    await newProduct.save();
+    res.status(201).json({ message: "Product added successfully" });
+});
+
+module.exports = router;
+```
+
+### 3. Order Processing (routes/orderRoutes.js)
+```javascript
+const express = require("express");
+const Order = require("../models/Order");
+const Product = require("../models/Product");
+const authMiddleware = require("../middleware/authMiddleware");
+
+const router = express.Router();
+
+router.post("/", authMiddleware, async (req, res) => {
+    const { productId, quantity } = req.body;
+    const product = await Product.findById(productId);
+
+    if (!product || product.stock < quantity) {
+        return res.status(400).json({ message: "Not enough stock" });
+    }
+
+    const totalPrice = product.price * quantity;
+    const newOrder = new Order({ userId: req.user.id, productId, quantity, totalPrice });
+
+    product.stock -= quantity;
+    await product.save();
+    await newOrder.save();
+
+    res.status(201).json({ message: "Order placed successfully" });
+});
+
+module.exports = router;
+```
+
+---
+## Step 7: Set Up Express (app.js)
+```javascript
+require("dotenv").config();
+const express = require("express");
+const connectDB = require("./config/db");
+
+const userRoutes = require("./routes/userRoutes");
+const productRoutes = require("./routes/productRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+
+const app = express();
+app.use(express.json());
+
+connectDB();
+
+app.use("/api/users", userRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/orders", orderRoutes);
+
+app.get("/", (req, res) => {
+    res.send("Welcome to T2S E-Commerce API");
+});
+
+const PORT = process.env.PORT || 5050;
+app.listen(PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`));
+```
+
+---
+## Step 8: Run the API
+
+**1. Start MongoDB (if using local setup)**
+```bash
+mongod
+```
+
+** 2. Run the API**
+```bash
+node app.js
+```
+
+- API is live at: **http://127.0.0.1:5050/**
+
+
+---
 ## Conclusion
-
-This Flask RESTful API for T2S Services is a real-world e-commerce solution that supports user authentication, product management, and order processing, similar to Amazon, Shopify, and BigCommerce.
-
+This **T2S Services E-commerce API** provides a scalable and secure foundation for an online store, handling essential functionalities like **user authentication, product management, and order processing**. Future enhancements could include **payment gateway integration (e.g., Stripe, PayPal), Dockerization**, and **deployment on AWS** for high availability.
