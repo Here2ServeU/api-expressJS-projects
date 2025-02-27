@@ -273,12 +273,51 @@ const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`));
 ```
 
+- If running MongoDB **locally**, do the following: 
+
+   - Create the **.env** if it does not exist.
+```bash
+ls -la    # To verify if the .env exists. 
+touch .env # To create the .env file
+```
+    - Add the following content to the **.env** file:
+```plaintext
+MONGO_URI=mongodb://localhost:27017/t2s-ecommerce
+JWT_SECRET=yourjwtsecret
+PORT=5050
+```
+
 ---
 ## Step 8: Run the API
 
 **1. Start MongoDB (if using local setup)**
+- Install MongoDB
 ```bash
+# For macOS (Using Homebrew)
+brew tap mongodb/brew
+brew install mongodb-community@7.0
+
+# After installation, start MongoDB
+brew services start mongodb-community@7.0
+
+# For Ubuntu/Linux
+sudo apt update
+sudo apt install -y mongodb
+sudo systemctl start mongodb
+sudo systemctl enable mongodb
+
+# For Windows
+## -> 1. Download MongoDB Community Edition from MongoDB Download Center.
+## -> 2.Install MongoDB and make sure C:\Program Files\MongoDB\Server\7.0\bin is added to the system PATH.
+## -> 3.Start MongoDB:
+
+# Start mongoDB
 mongod
+
+# Verify MongoDB is Running
+ps aux | grep mongod
+
+#Or, use "mongo" command
 ```
 
 ** 2. Run the API**
@@ -288,6 +327,33 @@ node app.js
 
 - API is live at: **http://127.0.0.1:5050/**
 
+---
+
+## Step 9: Create Users
+### On The Command Line
+#### Replace the following with the desired values: 
+```bash
+curl -X POST http://127.0.0.1:5050/api/enroll \
+     -H "Content-Type: application/json" \
+     -d '{"firstName":"John", "lastName":"Doe", "phone":"1234567890", "email":"john@example.com", "course":"DevOps"}'
+```
+- "firstName":"**John**"
+- "lastName":"**Doe**"
+- "phone":"**1234567890**"
+- "email":"**john@example.com**"
+- "course":"**DevOps**"
+
+#### Expected output:
+```json
+{
+    "message": "Enrollment successful!"
+}
+```
+
+#### Verify in MongoDB
+```bash
+db.enrollments.find().pretty()
+```
 
 ---
 ## Conclusion

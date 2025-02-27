@@ -1,0 +1,4 @@
+//For the .env file
+MONGO_URI=mongodb://localhost:27017/t2s-ecommerce
+JWT_SECRET=yourJWTsecret-2025
+PORT=5050
