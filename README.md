@@ -49,26 +49,7 @@ npm install express mongoose bcryptjs jsonwebtoken dotenv cors body-parser
 
 ---
 ## Step 2: Project Structure
-```plaintext
-t2s-ecommerce-api/
-│── config/
-│   ├── db.js
-│── models/
-│   ├── User.js
-│   ├── Product.js
-│   ├── Order.js
-│── routes/
-│   ├── userRoutes.js
-│   ├── productRoutes.js
-│   ├── orderRoutes.js
-│── middleware/
-│   ├── authMiddleware.js
-│── app.js
-│── .env
-│── package.json
-│── README.md
-```
-
+![Project Setup](./screenshots/api-1.png)
 ---
 ## Step 3: Configure MongoDB Connection (config/db.js)
 
@@ -288,7 +269,21 @@ PORT=5050
 ```
 
 ---
-## Step 8: Run the API
+
+## Step 8: Re-Install Dependencies in Case of Errors
+```bash
+npm install express # To install Express
+npm list express    # To verify Express
+```
+
+- Delete node_modules and Reinstall
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+- Now go to **Step 9**. 
+---
+## Step 9: Run the API
 
 **1. Start MongoDB (if using local setup)**
 - Install MongoDB
@@ -329,7 +324,7 @@ node app.js
 
 ---
 
-## Step 9: Create Users
+## Step 10: Create Users
 ### On The Command Line
 #### Replace the following with the desired values: 
 ```bash
@@ -355,6 +350,53 @@ curl -X POST http://127.0.0.1:5050/api/enroll \
 db.enrollments.find().pretty()
 ```
 
+### On The Browser
+- Fill out the form manually and click **Submit**
+
 ---
+
+## Step 11: Clean Up
+```bash
+# Remove Unnecessary Files
+rm -rf node_modules package-lock.json
+
+# Ensure .gitignore is Set Up
+ls -a | grep .gitignore  # To check if .gitignore exists
+
+# If missing, create it
+touch .gitignore
+
+# Add the following content: 
+node_modules/
+.env
+.DS_Store
+package-lock.json
+screenshots/
+
+# Remove Local MongoDB Data (If Desired)
+mongsh
+use t2s-ecommerce
+db.dropDatabase()  # Deletes all data
+exit
+
+# Reset Git History (If Necessary)
+git rm -rf --cached .
+git add .
+git commit -m "Cleaned up sensitive files and directories"
+
+# Reinstall Dependencies
+npm install
+
+# Push Only the Core Components of the Infrastructure
+git init
+git add .
+git commit -m "Pushing updated scripts for the Express API with MongoDB"
+git branch -M main
+git remote add origin https://github.com/Here2ServeU/api-expressJS-projects.git # If necessary
+git push -u origin main 
+```
+
+---
+
 ## Conclusion
 This **T2S Services E-commerce API** provides a scalable and secure foundation for an online store, handling essential functionalities like **user authentication, product management, and order processing**. Future enhancements could include **payment gateway integration (e.g., Stripe, PayPal), Dockerization**, and **deployment on AWS** for high availability.
