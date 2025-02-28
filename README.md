@@ -24,7 +24,6 @@ This guide demonstrates how to build **a real-world RESTful API** for **T2S Serv
 ---
 
 ## Step 1: Set Up Your Express.js Project
-
 ### 1: Set Up the Project
 
 - Run the following in your terminal: 
@@ -34,6 +33,8 @@ cd t2s-ecommerce-api
 npm init -y
 ```
 - This will create a **package.json** file. 
+
+![Initialize Your Project](./screenshots/api-3.png)
 
 ### 2: Install Dependencies
 ```bash
@@ -47,9 +48,37 @@ npm install express mongoose bcryptjs jsonwebtoken dotenv cors body-parser
 - **cors**: Cross-Origin Resource Sharing. 
 - **body-parser**: Parse incoming JSON requests. 
 
+![Installing Dependencies](./screenshots/api-2.png)
+
 ---
 ## Step 2: Project Structure
-![Project Setup](./screenshots/api-1.png)
+```plaintext
+t2s-ecommerce-api/
+│── config/
+│   ├── db.js
+│── models/
+│   ├── Enrollment.js
+│   ├── User.js
+│   ├── Product.js
+│   ├── Order.js
+│── public/
+│   ├── Emmanuel-N.JPG
+│   ├── index.html
+│   ├── script.js
+│   ├── styles.css
+│── routes/
+│   ├── Enrollment.js
+│   ├── userRoutes.js
+│   ├── productRoutes.js
+│   ├── orderRoutes.js
+│── middleware/
+│   ├── authMiddleware.js
+│── screenshots/
+│── app.js
+│── .env
+│── package.json
+│── README.md
+```
 ---
 ## Step 3: Configure MongoDB Connection (config/db.js)
 
@@ -115,7 +144,23 @@ const OrderSchema = new mongoose.Schema({
 module.exports = mongoose.model("Order", OrderSchema);
 ```
 
+### 4. Enrollment Model (models/Enrollment.js)
+```javascript
+const mongoose = require("mongoose");
+
+const EnrollmentSchema = new mongoose.Schema({
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    phone: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    course: { type: String, required: true }
+});
+
+module.exports = mongoose.model("Enrollment", EnrollmentSchema);
+```
+
 ---
+
 ## Step 5: Middleware for Authentication (middleware/authMiddleware.js)
 ```javascript
 const jwt = require("jsonwebtoken");
@@ -226,7 +271,43 @@ router.post("/", authMiddleware, async (req, res) => {
 module.exports = router;
 ```
 
+### 4. Enrollment (routes/enrollmentRoutes.js)
+```javascript
+const express = require("express");
+const Enrollment = require("../models/Enrollment");
+
+const router = express.Router();
+
+// POST route to handle enrollments
+router.post("/enroll", async (req, res) => {
+    try {
+        console.log("Incoming Request Data:", req.body); // Log the received data
+
+        const { firstName, lastName, phone, email, course } = req.body;
+
+        // Check if all fields are provided
+        if (!firstName || !lastName || !phone || !email || !course) {
+            return res.status(400).json({ message: "All fields are required." });
+        }
+
+        // Save to database
+        const newEnrollment = new Enrollment({ firstName, lastName, phone, email, course });
+        await newEnrollment.save();
+
+        console.log("User Enrolled Successfully:", newEnrollment);
+        res.status(201).json({ message: "Enrollment successful!" });
+
+    } catch (error) {
+        console.error("❌ Error enrolling user:", error);
+        res.status(500).json({ message: "Internal Server Error", error: error.message });
+    }
+});
+
+module.exports = router;
+```
+
 ---
+
 ## Step 7: Set Up Express (app.js)
 ```javascript
 require("dotenv").config();
@@ -263,11 +344,23 @@ touch .env # To create the .env file
 ```
     - Add the following content to the **.env** file:
 ```plaintext
+# Database Connection
 MONGO_URI=mongodb://localhost:27017/t2s-ecommerce
-JWT_SECRET=yourjwtsecret
-PORT=5050
-```
 
+# Authentication & Security
+JWT_SECRET=yourJWTsecret-2025
+
+# Server Configuration
+PORT=5050
+
+# CORS Setup (Optional)
+CORS_ORIGIN=*
+
+# Debugging & Logging
+NODE_ENV=development
+```
+- A little different from what you see on the screenshot below. But, basically, you need to determine the values for MONGO_URI, JWT_SECRET and PORT.
+![Installing Dependencies](./screenshots/api-4.png)
 ---
 
 ## Step 8: Re-Install Dependencies in Case of Errors
@@ -322,6 +415,8 @@ node app.js
 
 - API is live at: **http://127.0.0.1:5050/**
 
+![Validate on the Browser](./screenshots/api-7-browser.png)
+
 ---
 
 ## Step 10: Create Users
@@ -338,20 +433,32 @@ curl -X POST http://127.0.0.1:5050/api/enroll \
 - "email":"**john@example.com**"
 - "course":"**DevOps**"
 
+![Validate on MongoDB](./screenshots/api-13-new_user-CLI.png)
+
 #### Expected output:
 ```json
 {
     "message": "Enrollment successful!"
 }
 ```
+- Enter the details. 
+![New User](./screenshots/api-8.png)
+
+- You see the message after clicking on the "Submit" button. 
+![New User](./screenshots/api-9.png)
+
+#### Verify on the Command Line
+
+![Validate on CLI](./screenshots/api-10.png)
 
 #### Verify in MongoDB
 ```bash
 db.enrollments.find().pretty()
 ```
+![Validate on MongoDB](./screenshots/api-10.png)
 
-### On The Browser
-- Fill out the form manually and click **Submit**
+- Finding a specific user by email.
+![Querrying Users on MongoDB](./screenshots/api-12.png)
 
 ---
 
